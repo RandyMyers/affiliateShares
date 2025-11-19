@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Build files
+dist/
+build/
+*.zip
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploads (if storing locally)
+uploads/
+public/uploads/
+
+# MongoDB data (if running locally)
+data/
+
+# PM2
+.pm2/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Plugin ZIP files
+*.zip
+

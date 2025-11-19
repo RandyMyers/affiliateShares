@@ -1,0 +1,267 @@
+Models for Advertiser Features
+Advertiser Model
+
+Fields:
+name: String, required - Name of the advertiser.
+email: String, required - Email address of the advertiser.
+password: String, required - Encrypted password.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Relations:
+affiliatePrograms: Array of references to AffiliateProgram.
+AffiliateProgram Model
+
+Fields:
+advertiser: ObjectId, ref Advertiser, required - The advertiser creating the program.
+name: String, required - Name of the affiliate program.
+description: String, required - Description of the program.
+commissionStructure: ObjectId, ref CommissionStructure, required - Commission structure for the program.
+terms: String, required - Terms and conditions for affiliates.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Relations:
+creatives: Array of references to Creative.
+CommissionStructure Model
+
+Fields:
+type: String, enum (flat, percentage, tiered), required - Type of commission.
+rate: Number, required - Flat rate or percentage commission.
+tieredRates: Array of objects:
+tier: Number, required - Tier level.
+rate: Number, required - Rate for the tier.
+Relations:
+affiliatePrograms: Array of references to AffiliateProgram.
+Creative Model
+
+Fields:
+advertiser: ObjectId, ref Advertiser, required - The advertiser providing the creative.
+type: String, enum (banner, link, datafeed), required - Type of creative.
+url: String, required - URL of the creative (banner URL, download link, or datafeed URL).
+description: String - Description of the creative.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Relations:
+affiliatePrograms: Array of references to AffiliateProgram.
+Models for Affiliate Features
+Affiliate Model
+
+Fields:
+name: String, required - Name of the affiliate.
+email: String, required - Email address of the affiliate.
+password: String, required - Encrypted password.
+website: String - Affiliate’s website URL.
+socialMediaLinks: Array of strings - URLs to social media profiles.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Relations:
+affiliatePrograms: Array of references to AffiliateProgram.
+AffiliateDashboard Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate accessing the dashboard.
+activePrograms: Array of references to AffiliateProgram - Active programs the affiliate is part of.
+performanceMetrics: Object - Metrics like clicks, impressions, conversions, earnings.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+AffiliateApplication Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate applying.
+affiliateProgram: ObjectId, ref AffiliateProgram, required - The program the affiliate is applying to.
+status: String, enum (pending, approved, denied), required - Application status.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+CreativeAccess Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate accessing the creative.
+creative: ObjectId, ref Creative, required - The creative being accessed.
+downloadLink: String - Custom link for the affiliate to download the creative.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+PerformanceTracking Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate.
+affiliateProgram: ObjectId, ref AffiliateProgram, required - The program associated with the tracking.
+metrics: Object - Metrics like clicks, impressions, conversions, earnings.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Models for Admin Features
+UserManagement Model
+
+Fields:
+role: String, enum (admin, advertiser, affiliate), required - User role.
+name: String, required - Name of the user.
+email: String, required - Email address of the user.
+password: String, required - Encrypted password.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Relations:
+advertisers: Array of references to Advertiser.
+affiliates: Array of references to Affiliate.
+ProgramOversight Model
+
+Fields:
+affiliateProgram: ObjectId, ref AffiliateProgram, required - The program being monitored.
+status: String, enum (active, suspended, terminated), required - Program status.
+nonCompliantCreatives: Array of references to Creative - Creatives flagged as non-compliant.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+PaymentProcessing Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate receiving the payment.
+amount: Number, required - Payment amount.
+method: String, enum (PayPal, Bank Transfer, Wire Transfer), required - Payment method.
+status: String, enum (pending, completed, failed), required - Payment status.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+PlatformAnalytics Model
+
+Fields:
+totalClicks: Number - Total clicks across all programs.
+totalConversions: Number - Total conversions across all programs.
+totalRevenue: Number - Total revenue generated.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+ContentModeration Model
+
+Fields:
+creative: ObjectId, ref Creative, required - The creative being moderated.
+status: String, enum (approved, denied), required - Moderation status.
+reason: String - Reason for denial.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+PlatformConfiguration Model
+
+Fields:
+settingName: String, required - Name of the setting (e.g., payoutThreshold, transactionFee).
+value: String, required - Setting value.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Advanced Features Models
+LinkShortener Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate using the link shortener.
+originalLink: String, required - Original long URL.
+shortenedLink: String, required - Custom branded short URL.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+APIAccess Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate accessing the API.
+apiKey: String, required - API key for access.
+accessLevel: String, enum (read, write, admin), required - Level of API access.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+SocialMediaIntegration Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate integrating with social media.
+platform: String, enum (Facebook, Twitter, Instagram), required - Social media platform.
+trackingLink: String, required - Tracking link for sharing.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+DynamicCommissionRates Model
+
+Fields:
+affiliateProgram: ObjectId, ref AffiliateProgram, required - The program.
+tier: Number, required - Tier level.
+rate: Number, required - Commission rate for the tier.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+FraudDetection Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate.
+suspiciousActivity: Array of strings - Detected fraudulent activities (e.g., click fraud).
+status: String, enum (flagged, resolved), required - Status of fraudulent activity.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+A/BTesting Model
+
+Fields:
+affiliateProgram: ObjectId, ref AffiliateProgram, required - The program being tested.
+variant: String, required - Variant identifier.
+creatives: Array of references to Creative - List of creatives tested.
+results: Object - A/B testing results (e.g., clicks, conversions).
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Models for Integration and Customization
+ThirdPartyIntegration Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate integrating with third-party services.
+integrationName: String, required - Name of the integration (e.g., Google Analytics, Shopify).
+integrationData: Object - Integration-specific data (API keys, configurations).
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+CustomTrackingSolution Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate using custom tracking.
+trackingType: String, enum (pixel, server-side), required - Type of tracking.
+trackingData: Object - Custom tracking details (e.g., pixel URL, event triggers).
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Localization Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate using localization.
+language: String, enum (English, German, Spanish, etc.), required - Language.
+translations: Object - Translations for various platform elements.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Models for Community and Support
+KnowledgeBase Model
+
+Fields:
+title: String, required - Title of the knowledge base entry.
+content: String, required - Content of the entry.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+AffiliateForumModel
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate posting in the forum.
+topic: String, required - Topic of the forum post.
+content: String, required - Content of the post.
+replies: Array of references to ForumReply - Replies to the post.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+CustomerSupportTicket Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate creating the ticket.
+issue: String, required - Issue description.
+status: String, enum (open, pending, resolved), required - Ticket status.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+Models for Security and Compliance
+GDPRCompliance Model
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate affected by GDPR compliance.
+dataConsent: Boolean, required - User consent for data collection.
+rights: Array of strings - Rights exercised under GDPR (e.g., data deletion, data access).
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+SecurePayoutModel
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate receiving payouts.
+transactionId: String, required - Unique transaction identifier.
+amount: Number, required - Payout amount.
+status: String, enum (pending, completed, failed), required - Payout status.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
+TwoFactorAuthenticationModel
+
+Fields:
+affiliate: ObjectId, ref Affiliate, required - The affiliate enabling two-factor authentication.
+enabled: Boolean, required - Whether two-factor authentication is enabled.
+createdAt: Date, default - Current timestamp.
+updatedAt: Date, default - Current timestamp.
