@@ -1,5 +1,5 @@
 const Product = require('../models/Product');
-const Store = require('../models/Store');
+const Store = require('../models/store');
 const { sendResponse } = require('../utils/response');
 
 /**
