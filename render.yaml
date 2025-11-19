@@ -3,6 +3,7 @@ services:
     name: affiliate-network-api
     env: node
     plan: starter
+    nodeVersion: 20.18.0
     buildCommand: npm install
     startCommand: npm start
     envVars:
