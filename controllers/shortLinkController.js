@@ -1,6 +1,6 @@
 const ShortLink = require('../models/ShortLink');
-const TrackingLink = require('../models/TrackingLink');
-const Affiliate = require('../models/Affiliate');
+const TrackingLink = require('../models/trackingLink');
+const Affiliate = require('../models/affiliate');
 const { generateSlug } = require('../utils/slugGenerator');
 
 /**
