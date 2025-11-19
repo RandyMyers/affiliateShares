@@ -37,6 +37,7 @@
     "express-validator": "^7.0.1",
     "flutterwave-node-v3": "^1.0.7",
     "paystack": "^2.0.1",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "node-cron": "^3.0.3"
   }
 }
