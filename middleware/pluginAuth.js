@@ -46,11 +46,16 @@ const authenticatePlugin = async (req, res, next) => {
       platform: 'woocommerce'
     };
 
-    // If domain provided, match by domain
+    // If domain provided, match by domain (normalize for comparison)
     if (domain) {
       const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-      query.domain = cleanDomain;
       console.log(`[Plugin Auth] Looking for store with domain: ${cleanDomain}`);
+      
+      // Use regex to match domain regardless of protocol in database
+      // This handles cases where store domain is stored as 'https://domain.com' or 'domain.com'
+      query.domain = {
+        $regex: new RegExp(`^https?://${cleanDomain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$|^${cleanDomain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+      };
     }
 
     const stores = await Store.find(query).select('-settings.webhookSecret').sort({ createdAt: -1 });
