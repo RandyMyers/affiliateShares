@@ -418,14 +418,39 @@ exports.verifyWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
     });
 
     if (response.status === 200 && Array.isArray(response.data)) {
-      const webhook = response.data.find(wh => 
-        wh.delivery_url && wh.delivery_url.includes(webhookUrl)
-      );
+      // Normalize URLs for comparison (remove trailing slashes, convert to lowercase)
+      const normalizeUrl = (url) => {
+        if (!url) return '';
+        return url.toString().toLowerCase().replace(/\/$/, '').trim();
+      };
+      
+      const normalizedWebhookUrl = normalizeUrl(webhookUrl);
+      
+      // Find webhook by matching the delivery URL
+      // Check both exact match and partial match (in case of URL encoding differences)
+      const webhook = response.data.find(wh => {
+        if (!wh.delivery_url) return false;
+        const normalizedDeliveryUrl = normalizeUrl(wh.delivery_url);
+        
+        // Exact match
+        if (normalizedDeliveryUrl === normalizedWebhookUrl) return true;
+        
+        // Partial match - check if the path matches (ignore protocol/host differences)
+        const webhookPath = normalizedWebhookUrl.split('/api/')[1]; // Get path after domain
+        const deliveryPath = normalizedDeliveryUrl.split('/api/')[1];
+        if (webhookPath && deliveryPath && deliveryPath === webhookPath) return true;
+        
+        // Also check if delivery URL contains the webhook path
+        if (webhookPath && normalizedDeliveryUrl.includes(webhookPath)) return true;
+        
+        return false;
+      });
       
       if (webhook) {
         return {
           success: true,
           configured: true,
+          active: webhook.status === 'active',
           webhook: {
             id: webhook.id,
             name: webhook.name,
@@ -435,6 +460,17 @@ exports.verifyWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
           },
           message: 'Webhook is configured'
         };
+      }
+      
+      // Log all webhooks for debugging (only in development)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Webhook Verify] Webhook URL to find:', normalizedWebhookUrl);
+        console.log('[Webhook Verify] Found webhooks:', response.data.map(wh => ({
+          id: wh.id,
+          name: wh.name,
+          delivery_url: wh.delivery_url,
+          status: wh.status
+        })));
       }
       
       return {

@@ -303,6 +303,10 @@ exports.createWebhook = async (req, res, next) => {
     const crypto = require('crypto');
     const webhookSecret = crypto.randomBytes(32).toString('hex');
 
+    console.log('[Create Webhook] Creating webhook with URL:', webhookUrl);
+    console.log('[Create Webhook] Store ID:', storeId);
+    console.log('[Create Webhook] API_URL:', API_URL);
+    
     const result = await woocommerceService.createWebhook(
       store.woocommerce.apiUrl || store.domain,
       store.woocommerce.consumerKey,
@@ -310,6 +314,13 @@ exports.createWebhook = async (req, res, next) => {
       webhookUrl,
       webhookSecret
     );
+
+    console.log('[Create Webhook] Result:', {
+      success: result.success,
+      error: result.error,
+      message: result.message,
+      webhookId: result.webhookId
+    });
 
     if (result.success) {
       // Save webhook secret to store settings
@@ -718,12 +729,22 @@ exports.checkInstallationStatus = async (req, res, next) => {
 
     if (store.woocommerce?.consumerKey && store.woocommerce?.consumerSecret) {
       const woocommerceService = require('../services/woocommerceService');
+      console.log('[Installation Status] Checking webhook with URL:', webhookUrl);
+      console.log('[Installation Status] API_URL:', API_URL);
+      
       const webhookCheck = await woocommerceService.verifyWebhook(
         store.woocommerce.apiUrl || store.domain,
         store.woocommerce.consumerKey,
         store.woocommerce.consumerSecret,
         webhookUrl
       );
+
+      console.log('[Installation Status] Webhook check result:', {
+        configured: webhookCheck.configured,
+        active: webhookCheck.active,
+        success: webhookCheck.success,
+        message: webhookCheck.message
+      });
 
       webhookStatus = {
         configured: webhookCheck.configured || false,
