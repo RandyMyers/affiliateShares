@@ -1,35 +1,8 @@
 const Store = require('../models/store');
 const User = require('../models/user');
-const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
 const { sendResponse } = require('../utils/response');
 
-// Generate API token for plugin
-const generatePluginToken = (storeId, merchantId) => {
-  const payload = {
-    storeId: storeId.toString(),
-    merchantId: merchantId.toString(),
-    type: 'plugin',
-    iat: Math.floor(Date.now() / 1000)
-  };
-  
-  return jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', {
-    expiresIn: '365d' // Plugin tokens last 1 year
-  });
-};
-
-// Verify plugin token
-const verifyPluginToken = (token) => {
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    if (decoded.type !== 'plugin') {
-      return null;
-    }
-    return decoded;
-  } catch (error) {
-    return null;
-  }
-};
+// Token functions removed - using Merchant ID directly (like ShareASale)
 
 // Authenticate plugin with merchantId
 exports.authenticate = async (req, res, next) => {
@@ -81,12 +54,10 @@ exports.authenticate = async (req, res, next) => {
       await store.save();
     }
 
-    // Generate API token (use MongoDB _id for token)
-    const apiToken = generatePluginToken(store._id, merchant._id.toString());
-
     const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
 
-    return sendResponse(res, 200, 'Authentication successful', {
+    // Return store info directly (no token needed - using Merchant ID)
+    return sendResponse(res, 200, 'Store information retrieved successfully', {
       store: {
         id: store._id.toString(),
         name: store.name,
@@ -95,7 +66,6 @@ exports.authenticate = async (req, res, next) => {
         cookieDuration: store.settings?.cookieDuration || 30,
         status: store.status
       },
-      apiToken,
       webhookUrl: `${API_URL}/api/webhooks/woocommerce/${store._id}`,
       apiUrl: API_URL
     });
@@ -104,25 +74,18 @@ exports.authenticate = async (req, res, next) => {
   }
 };
 
-// Get store info by storeId (with API token)
+// Get store info (with Merchant ID - simplified approach)
 exports.getStoreInfo = async (req, res, next) => {
   try {
-    const { storeId } = req.params;
-    const tokenData = req.pluginToken; // Set by middleware
+    const store = req.store; // Set by middleware
 
-    if (!tokenData || tokenData.storeId !== storeId) {
-      return sendResponse(res, 403, 'Invalid token for this store', null);
+    if (!store.trackingCode) {
+      // Generate tracking code if missing
+      store.generateTrackingCode();
+      await store.save();
     }
 
-    const store = await Store.findById(storeId).select('-settings.webhookSecret');
-
-    if (!store) {
-      return sendResponse(res, 404, 'Store not found', null);
-    }
-
-    if (store.merchant.toString() !== tokenData.merchantId) {
-      return sendResponse(res, 403, 'Access denied', null);
-    }
+    const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
 
     return sendResponse(res, 200, 'Store information retrieved successfully', {
       store: {
@@ -136,7 +99,9 @@ exports.getStoreInfo = async (req, res, next) => {
           defaultCommissionRate: store.settings?.defaultCommissionRate || 10,
           commissionType: store.settings?.commissionType || 'percentage'
         }
-      }
+      },
+      webhookUrl: `${API_URL}/api/webhooks/woocommerce/${store._id}`,
+      apiUrl: API_URL
     });
   } catch (error) {
     next(error);
@@ -162,31 +127,21 @@ exports.getStoreByApiKey = async (req, res, next) => {
   }
 };
 
-// Test connection endpoint
+// Test connection endpoint (with Merchant ID - simplified approach)
 exports.testConnection = async (req, res, next) => {
   try {
-    const tokenData = req.pluginToken;
-
-    if (!tokenData) {
-      return sendResponse(res, 401, 'Invalid or missing token', null);
-    }
-
-    const store = await Store.findById(tokenData.storeId);
-
-    if (!store) {
-      return sendResponse(res, 404, 'Store not found', null);
-    }
+    const store = req.store; // Set by middleware
 
     return sendResponse(res, 200, 'Connection successful', {
       connected: true,
       storeName: store.name,
-      status: store.status
+      status: store.status,
+      merchantId: req.merchantId
     });
   } catch (error) {
     next(error);
   }
 };
 
-// Export token verification function for middleware
-exports.verifyPluginToken = verifyPluginToken;
+// Token functions removed - using Merchant ID directly
 

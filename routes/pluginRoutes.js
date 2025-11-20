@@ -3,15 +3,20 @@ const router = express.Router();
 const pluginController = require('../controller/pluginController');
 const { authenticatePlugin } = require('../middleware/pluginAuth');
 
-// Public route - no auth required (merchantId is the auth)
-router.post('/authenticate', pluginController.authenticate);
+// Simplified approach: All routes use Merchant ID (like ShareASale)
+// Merchant ID can be sent in:
+// - Header: X-Merchant-ID
+// - Query: ?merchantId=...
+// - Body: { merchantId: ... }
 
-// Protected routes - require plugin token
-router.get('/store/:storeId', authenticatePlugin, pluginController.getStoreInfo);
+// Get store info - requires Merchant ID
+router.get('/store', authenticatePlugin, pluginController.getStoreInfo);
+
+// Test connection - requires Merchant ID
 router.get('/test', authenticatePlugin, pluginController.testConnection);
 
-// Alternative API key route (for future implementation)
-router.get('/store', pluginController.getStoreByApiKey);
+// Keep authenticate endpoint for backward compatibility (optional)
+router.post('/authenticate', pluginController.authenticate);
 
 module.exports = router;
 
