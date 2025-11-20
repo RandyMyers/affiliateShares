@@ -326,7 +326,14 @@ exports.checkPluginStatus = async (storeUrl, consumerKey, consumerSecret) => {
  */
 exports.createWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl, webhookSecret = null) => {
   try {
+    console.log('[WooCommerce Service] createWebhook called');
+    console.log('[WooCommerce Service] Store URL:', storeUrl);
+    console.log('[WooCommerce Service] Webhook URL:', webhookUrl);
+    console.log('[WooCommerce Service] Consumer Key:', consumerKey ? `${consumerKey.substring(0, 10)}...` : 'MISSING');
+    
     const client = createWooCommerceClient(storeUrl, consumerKey, consumerSecret);
+    console.log('[WooCommerce Service] Client baseURL:', client.baseURL);
+    console.log('[WooCommerce Service] Full webhook endpoint:', `${client.baseURL}/webhooks`);
     
     // Generate secret if not provided
     const secret = webhookSecret || crypto.randomBytes(32).toString('hex');
@@ -339,6 +346,14 @@ exports.createWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
       status: 'active'
     };
 
+    console.log('[WooCommerce Service] Webhook data to send:', {
+      name: webhookData.name,
+      topic: webhookData.topic,
+      delivery_url: webhookData.delivery_url,
+      status: webhookData.status,
+      secret: secret ? '***' : 'MISSING'
+    });
+
     const response = await axios.post(`${client.baseURL}/webhooks`, webhookData, {
       auth: client.auth,
       headers: client.headers,
@@ -346,7 +361,11 @@ exports.createWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
       validateStatus: () => true
     });
 
+    console.log('[WooCommerce Service] Response status:', response.status);
+    console.log('[WooCommerce Service] Response data:', JSON.stringify(response.data, null, 2));
+
     if (response.status === 201) {
+      console.log('[WooCommerce Service] ✅ Webhook created successfully! ID:', response.data.id);
       return {
         success: true,
         webhook: response.data,
@@ -358,6 +377,7 @@ exports.createWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
 
     // Check if webhook already exists
     if (response.status === 400 && response.data?.code === 'woocommerce_rest_webhook_delivery_url_exists') {
+      console.log('[WooCommerce Service] ⚠️ Webhook already exists');
       return {
         success: false,
         message: 'Webhook with this URL already exists',
@@ -370,6 +390,9 @@ exports.createWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
     let errorCode = 'CREATE_FAILED';
     
     if (response.status === 400) {
+      console.log('[WooCommerce Service] ❌ 400 Error - Response code:', response.data?.code);
+      console.log('[WooCommerce Service] ❌ 400 Error - Full response:', JSON.stringify(response.data, null, 2));
+      
       // Check for specific error codes
       if (response.data?.code === 'woocommerce_rest_invalid_delivery_url') {
         errorMessage = 'Invalid webhook URL. Localhost URLs may not be accepted by WooCommerce. Please configure webhook manually.';
@@ -377,21 +400,52 @@ exports.createWebhook = async (storeUrl, consumerKey, consumerSecret, webhookUrl
       } else if (response.data?.code === 'woocommerce_rest_webhook_invalid_delivery_url') {
         errorMessage = 'Webhook URL is invalid or not accessible. For localhost, please configure webhook manually.';
         errorCode = 'INVALID_URL';
+      } else if (response.data?.code === 'rest_cannot_create') {
+        errorMessage = 'Cannot create webhook. Check API permissions. Consumer Key needs Write permission.';
+        errorCode = 'PERMISSION_ERROR';
+      } else if (response.data?.code === 'woocommerce_rest_authentication_error') {
+        errorMessage = 'Authentication failed. Invalid Consumer Key or Consumer Secret.';
+        errorCode = 'AUTH_ERROR';
       }
+    } else if (response.status === 401) {
+      console.log('[WooCommerce Service] ❌ 401 Unauthorized - Authentication failed');
+      errorMessage = 'Authentication failed. Invalid Consumer Key or Consumer Secret.';
+      errorCode = 'AUTH_ERROR';
+    } else if (response.status === 403) {
+      console.log('[WooCommerce Service] ❌ 403 Forbidden - Permission denied');
+      errorMessage = 'Permission denied. Consumer Key needs Write permission for webhooks.';
+      errorCode = 'PERMISSION_ERROR';
+    } else {
+      console.log('[WooCommerce Service] ❌ Unexpected status:', response.status);
     }
 
     return {
       success: false,
       message: errorMessage,
       error: errorCode,
-      details: response.data
+      details: response.data,
+      status: response.status
     };
   } catch (error) {
+    console.error('[WooCommerce Service] ❌ Exception caught:', error.message);
+    console.error('[WooCommerce Service] ❌ Error stack:', error.stack);
+    
     if (error.response) {
+      console.error('[WooCommerce Service] ❌ Error response status:', error.response.status);
+      console.error('[WooCommerce Service] ❌ Error response data:', JSON.stringify(error.response.data, null, 2));
       return {
         success: false,
-        message: error.response.data?.message || 'Failed to create webhook',
-        error: 'API_ERROR'
+        message: error.response.data?.message || `Failed to create webhook: ${error.response.status}`,
+        error: 'API_ERROR',
+        status: error.response.status,
+        details: error.response.data
+      };
+    } else if (error.request) {
+      console.error('[WooCommerce Service] ❌ No response received:', error.request);
+      return {
+        success: false,
+        message: 'No response from WooCommerce API. Check store URL and network connection.',
+        error: 'NETWORK_ERROR'
       };
     }
     return {
