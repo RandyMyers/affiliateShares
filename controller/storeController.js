@@ -633,7 +633,7 @@ exports.checkInstallationStatus = async (req, res, next) => {
     const store = await Store.findOne({
       _id: storeId,
       merchant: req.user.id
-    });
+    }).populate('merchant', 'merchantId');
 
     if (!store) {
       return sendResponse(res, 404, 'Store not found', null);
@@ -643,41 +643,101 @@ exports.checkInstallationStatus = async (req, res, next) => {
       return sendResponse(res, 400, 'This endpoint is only for WooCommerce stores', null);
     }
 
-    if (!store.woocommerce?.consumerKey || !store.woocommerce?.consumerSecret) {
-      return sendResponse(res, 400, 'WooCommerce API credentials not configured', null);
-    }
-
-    const woocommerceService = require('../services/woocommerceService');
     const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
     const webhookUrl = `${API_URL}/api/webhooks/woocommerce/${storeId}`;
 
-    // Check plugin status
-    const pluginStatus = await woocommerceService.checkPluginStatus(
-      store.woocommerce.apiUrl || store.domain,
-      store.woocommerce.consumerKey,
-      store.woocommerce.consumerSecret
-    );
+    // Check plugin status using the plugin's test endpoint (more reliable)
+    let pluginStatus = {
+      installed: false,
+      active: false,
+      configured: false
+    };
 
-    // Check webhook status
-    const webhookStatus = await woocommerceService.verifyWebhook(
-      store.woocommerce.apiUrl || store.domain,
-      store.woocommerce.consumerKey,
-      store.woocommerce.consumerSecret,
-      webhookUrl
-    );
+    // Get merchant ID from populated merchant or from user
+    const merchantId = store.merchant?.merchantId || req.user.merchantId;
+    
+    if (merchantId) {
+      try {
+        const axios = require('axios');
+        const cleanDomain = store.domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+        
+        // Test plugin connection using the simplified authentication
+        const testResponse = await axios.get(`${API_URL}/api/plugin/test`, {
+          params: {
+            merchantId: merchantId,
+            domain: cleanDomain
+          },
+          timeout: 10000,
+          validateStatus: () => true // Don't throw on any status
+        });
+
+        if (testResponse.status === 200 && testResponse.data?.success) {
+          pluginStatus = {
+            installed: true,
+            active: true,
+            configured: true
+          };
+        } else if (testResponse.status === 404) {
+          // Merchant not found or no store - plugin might not be configured
+          pluginStatus = {
+            installed: false,
+            active: false,
+            configured: false
+          };
+        } else {
+          // Other error - plugin might be installed but not configured
+          pluginStatus = {
+            installed: null, // Unknown
+            active: null,
+            configured: false
+          };
+        }
+      } catch (error) {
+        console.error('[Installation Status] Plugin test error:', error.message);
+        // Plugin test failed - could be network issue or plugin not installed
+        pluginStatus = {
+          installed: null,
+          active: null,
+          configured: false
+        };
+      }
+    } else {
+      // No merchant ID - can't test plugin
+      pluginStatus = {
+        installed: false,
+        active: false,
+        configured: false
+      };
+    }
+
+    // Check webhook status (only if WooCommerce API credentials are configured)
+    let webhookStatus = {
+      configured: false,
+      active: false
+    };
+
+    if (store.woocommerce?.consumerKey && store.woocommerce?.consumerSecret) {
+      const woocommerceService = require('../services/woocommerceService');
+      const webhookCheck = await woocommerceService.verifyWebhook(
+        store.woocommerce.apiUrl || store.domain,
+        store.woocommerce.consumerKey,
+        store.woocommerce.consumerSecret,
+        webhookUrl
+      );
+
+      webhookStatus = {
+        configured: webhookCheck.configured || false,
+        active: webhookCheck.active || (webhookCheck.webhook?.status === 'active') || false
+      };
+    }
 
     return sendResponse(res, 200, 'Installation status retrieved', {
-      plugin: {
-        installed: pluginStatus.installed || false,
-        active: pluginStatus.active || false,
-        configured: pluginStatus.configured || false
-      },
+      plugin: pluginStatus,
       webhook: {
-        configured: webhookStatus.configured || false,
-        active: webhookStatus.active || false,
+        ...webhookStatus,
         url: webhookUrl
       },
-      allVerified: (pluginStatus.active && webhookStatus.configured) || false
+      allVerified: (pluginStatus.active === true && webhookStatus.configured === true) || false
     });
   } catch (error) {
     next(error);
