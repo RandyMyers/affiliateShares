@@ -54,11 +54,14 @@ const authenticatePlugin = async (req, res, next) => {
     }
 
     const stores = await Store.find(query).select('-settings.webhookSecret').sort({ createdAt: -1 });
-    console.log(`[Plugin Auth] Found ${stores.length} store(s) for merchant ${merchantId}`);
+    console.log(`[Plugin Auth] Found ${stores.length} store(s) for merchant ${merchantId} matching criteria`);
 
     if (stores.length === 0) {
       // Check if merchant has any stores at all (for better error message)
-      const allStores = await Store.find({ merchant: merchant._id });
+      const allStores = await Store.find({ merchant: merchant._id }).select('name domain platform status');
+      console.log(`[Plugin Auth] Merchant has ${allStores.length} total store(s):`, 
+        allStores.map(s => ({ name: s.name, domain: s.domain, platform: s.platform, status: s.status })));
+      
       if (allStores.length === 0) {
         return res.status(404).json({
           success: false,
@@ -86,6 +89,12 @@ const authenticatePlugin = async (req, res, next) => {
           errorMsg += '. Some stores are not WooCommerce stores';
         }
         errorMsg += '. Please check your store settings in the dashboard.';
+        
+        // Add details about existing stores
+        const storeDetails = allStores.map(s => 
+          `- ${s.name} (${s.domain}): platform=${s.platform}, status=${s.status}`
+        ).join('\n');
+        errorMsg += `\n\nExisting stores:\n${storeDetails}`;
 
         return res.status(404).json({
           success: false,
