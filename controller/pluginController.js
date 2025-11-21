@@ -54,7 +54,7 @@ exports.authenticate = async (req, res, next) => {
       await store.save();
     }
 
-    const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
+    const API_URL = process.env.API_URL || process.env.BASE_URL || 'https://affiliateshares.onrender.com';
 
     // Return store info directly (no token needed - using Merchant ID)
     return sendResponse(res, 200, 'Store information retrieved successfully', {
@@ -85,7 +85,7 @@ exports.getStoreInfo = async (req, res, next) => {
       await store.save();
     }
 
-    const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
+    const API_URL = process.env.API_URL || process.env.BASE_URL || 'https://affiliateshares.onrender.com';
 
     return sendResponse(res, 200, 'Store information retrieved successfully', {
       store: {
