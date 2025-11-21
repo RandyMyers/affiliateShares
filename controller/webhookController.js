@@ -31,6 +31,25 @@ exports.handleWooCommerceWebhook = async (req, res, next) => {
     // Extract order data from WooCommerce webhook
     const wcOrder = req.body;
 
+    // Log incoming webhook for debugging
+    console.log('[WooCommerce Webhook] Received webhook:', {
+      storeId,
+      hasOrderId: !!wcOrder.id,
+      hasOrderNumber: !!wcOrder.number,
+      hasLineItems: !!wcOrder.line_items?.length,
+      orderKeys: Object.keys(wcOrder || {}).slice(0, 10) // First 10 keys
+    });
+
+    // Validate that this is a valid order payload (not a test webhook)
+    if (!wcOrder.id && !wcOrder.number) {
+      console.log('[WooCommerce Webhook] ⚠️ Test or invalid webhook payload - no order ID/number. Returning 200 to prevent retries.');
+      // Return 200 to prevent WooCommerce from retrying test/invalid webhooks
+      return sendResponse(res, 200, 'Webhook received (test/invalid payload skipped)', {
+        skipped: true,
+        reason: 'Missing order identifiers - likely test webhook'
+      });
+    }
+
     // Check if order already exists
     const existingOrder = await Order.findOne({
       store: storeId,
@@ -86,17 +105,22 @@ exports.handleWooCommerceWebhook = async (req, res, next) => {
       meta => meta.key === '_affiliate_cookie' || meta.key === 'affiliate_cookie'
     )?.value || affiliateRef;
 
-    // Validate required fields
+    // Validate required fields - if missing, this might be a test webhook or invalid payload
     const orderNumber = wcOrder.number || wcOrder.id?.toString();
     const externalOrderId = wcOrder.id?.toString() || wcOrder.number?.toString();
     
     if (!orderNumber || !externalOrderId) {
-      console.error('[WooCommerce Webhook] Missing required order identifiers:', {
-        number: wcOrder.number,
-        id: wcOrder.id,
-        order: wcOrder
+      console.log('[WooCommerce Webhook] ⚠️ Invalid or test webhook payload - missing order identifiers:', {
+        hasNumber: !!wcOrder.number,
+        hasId: !!wcOrder.id,
+        orderKeys: Object.keys(wcOrder || {})
       });
-      return sendResponse(res, 400, 'Order number or ID is required', null);
+      // Return 200 to prevent WooCommerce from retrying invalid/test webhooks
+      // This is likely a test webhook sent when webhook is created
+      return sendResponse(res, 200, 'Webhook received but order data invalid (likely test webhook)', {
+        skipped: true,
+        reason: 'Missing order identifiers'
+      });
     }
 
     // Parse numeric values safely (handle NaN)
@@ -115,7 +139,21 @@ exports.handleWooCommerceWebhook = async (req, res, next) => {
       ? safeParseFloat(wcOrder.subtotal, 0)
       : Math.max(0, total - totalTax - shippingTotal);
 
-    console.log('[WooCommerce Webhook] Processing order:', {
+    // Validate that we have valid order data (not all zeros, which might indicate invalid payload)
+    if (total === 0 && !wcOrder.line_items?.length) {
+      console.log('[WooCommerce Webhook] ⚠️ Invalid webhook payload - order has no items or total:', {
+        orderNumber,
+        hasLineItems: !!wcOrder.line_items?.length,
+        total
+      });
+      // Return 200 to prevent retries, but don't process
+      return sendResponse(res, 200, 'Webhook received but order data invalid (no items)', {
+        skipped: true,
+        reason: 'Order has no items or zero total'
+      });
+    }
+
+    console.log('[WooCommerce Webhook] ✅ Processing valid order:', {
       orderNumber,
       externalOrderId,
       total,
@@ -123,7 +161,8 @@ exports.handleWooCommerceWebhook = async (req, res, next) => {
       tax: totalTax,
       shipping: shippingTotal,
       discount: discountTotal,
-      hasAffiliateRef: !!affiliateRef
+      hasAffiliateRef: !!affiliateRef,
+      itemCount: wcOrder.line_items?.length || 0
     });
 
     // Process new order
