@@ -162,7 +162,10 @@ exports.handleWooCommerceWebhook = async (req, res, next) => {
       shipping: shippingTotal,
       discount: discountTotal,
       hasAffiliateRef: !!affiliateRef,
-      itemCount: wcOrder.line_items?.length || 0
+      affiliateRef: affiliateRef || 'NONE',
+      cookieId: cookieId || 'NONE',
+      itemCount: wcOrder.line_items?.length || 0,
+      metaDataKeys: wcOrder.meta_data?.map(m => m.key) || []
     });
 
     // Process new order

@@ -9,6 +9,15 @@ const { sendResponse } = require('../utils/response');
 exports.processOrder = async (req, res, next) => {
   try {
     const { storeId, orderData, cookieId, referralCode } = req.body;
+    
+    console.log('[Order Controller] Processing order:', {
+      storeId,
+      orderNumber: orderData?.orderNumber,
+      hasReferralCode: !!referralCode,
+      referralCode: referralCode || 'NONE',
+      hasCookieId: !!cookieId,
+      cookieId: cookieId || 'NONE'
+    });
 
     // Find store
     const store = await Store.findById(storeId);

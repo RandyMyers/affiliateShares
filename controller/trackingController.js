@@ -94,7 +94,7 @@ exports.serveTrackingScript = async (req, res, next) => {
       return res.status(404).send('// Store not found');
     }
 
-    const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
+    const API_URL = process.env.API_URL || process.env.BASE_URL || 'https://affiliateshares.onrender.com';
     const cookieDuration = store.settings.cookieDuration || 30;
 
     // Generate improved JavaScript snippet with WooCommerce support
