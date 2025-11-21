@@ -273,7 +273,8 @@ exports.createWebhook = async (req, res, next) => {
     }
 
     const woocommerceService = require('../services/woocommerceService');
-    const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
+    // Use production URL as default for webhooks (WooCommerce needs publicly accessible URL)
+    const API_URL = process.env.API_URL || process.env.BASE_URL || 'https://affiliateshares.onrender.com';
     const webhookUrl = `${API_URL}/api/webhooks/woocommerce/${storeId}`;
     
     // Check if webhook URL is localhost/local - WooCommerce may reject these
@@ -319,7 +320,9 @@ exports.createWebhook = async (req, res, next) => {
       success: result.success,
       error: result.error,
       message: result.message,
-      webhookId: result.webhookId
+      webhookId: result.webhookId,
+      status: result.status,
+      details: result.details
     });
 
     if (result.success) {
@@ -329,23 +332,34 @@ exports.createWebhook = async (req, res, next) => {
       store.settings.webhookUrl = webhookUrl;
       await store.save();
 
+      console.log('[Create Webhook] ✅ Webhook created and saved to database');
       return sendResponse(res, 201, 'Webhook created successfully', {
         webhook: result.webhook,
         webhookId: result.webhookId
       });
     }
 
-    // If webhook creation failed, still save the URL for manual setup
+    // If webhook creation failed, log the error and return appropriate status
+    console.log('[Create Webhook] ❌ Webhook creation failed:', {
+      error: result.error,
+      message: result.message,
+      status: result.status,
+      details: result.details
+    });
+
+    // Still save the URL for manual setup
     store.settings = store.settings || {};
     store.settings.webhookUrl = webhookUrl;
     store.settings.webhookSecret = webhookSecret;
     await store.save();
 
-    return sendResponse(res, 200, result.message || 'Webhook creation failed, please configure manually', {
+    // Return error status (400) instead of success (200) when webhook creation fails
+    return sendResponse(res, 400, result.message || 'Webhook creation failed, please configure manually', {
       error: result.error,
       webhookUrl: webhookUrl,
       requiresManualSetup: true,
-      details: result.message
+      details: result.details || result.message,
+      status: result.status
     });
   } catch (error) {
     next(error);
@@ -654,7 +668,8 @@ exports.checkInstallationStatus = async (req, res, next) => {
       return sendResponse(res, 400, 'This endpoint is only for WooCommerce stores', null);
     }
 
-    const API_URL = process.env.API_URL || process.env.BASE_URL || 'http://localhost:5000';
+    // Use production URL as default for webhooks (WooCommerce needs publicly accessible URL)
+    const API_URL = process.env.API_URL || process.env.BASE_URL || 'https://affiliateshares.onrender.com';
     const webhookUrl = `${API_URL}/api/webhooks/woocommerce/${storeId}`;
 
     // Check plugin status using the plugin's test endpoint (more reliable)
