@@ -86,38 +86,78 @@ exports.handleWooCommerceWebhook = async (req, res, next) => {
       meta => meta.key === '_affiliate_cookie' || meta.key === 'affiliate_cookie'
     )?.value || affiliateRef;
 
+    // Validate required fields
+    const orderNumber = wcOrder.number || wcOrder.id?.toString();
+    const externalOrderId = wcOrder.id?.toString() || wcOrder.number?.toString();
+    
+    if (!orderNumber || !externalOrderId) {
+      console.error('[WooCommerce Webhook] Missing required order identifiers:', {
+        number: wcOrder.number,
+        id: wcOrder.id,
+        order: wcOrder
+      });
+      return sendResponse(res, 400, 'Order number or ID is required', null);
+    }
+
+    // Parse numeric values safely (handle NaN)
+    const safeParseFloat = (value, defaultValue = 0) => {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? defaultValue : parsed;
+    };
+
+    const total = safeParseFloat(wcOrder.total, 0);
+    const totalTax = safeParseFloat(wcOrder.total_tax, 0);
+    const shippingTotal = safeParseFloat(wcOrder.shipping_total, 0);
+    const discountTotal = safeParseFloat(wcOrder.discount_total, 0);
+    
+    // Calculate subtotal: total - tax - shipping (if not provided separately)
+    const subtotal = wcOrder.subtotal 
+      ? safeParseFloat(wcOrder.subtotal, 0)
+      : Math.max(0, total - totalTax - shippingTotal);
+
+    console.log('[WooCommerce Webhook] Processing order:', {
+      orderNumber,
+      externalOrderId,
+      total,
+      subtotal,
+      tax: totalTax,
+      shipping: shippingTotal,
+      discount: discountTotal,
+      hasAffiliateRef: !!affiliateRef
+    });
+
     // Process new order
     const orderController = require('./orderController');
     req.body = {
       storeId,
       orderData: {
-        orderNumber: wcOrder.number || wcOrder.id?.toString(),
-        customerEmail: wcOrder.billing?.email,
-        customerName: `${wcOrder.billing?.first_name || ''} ${wcOrder.billing?.last_name || ''}`.trim(),
+        orderNumber: orderNumber,
+        customerEmail: wcOrder.billing?.email || '',
+        customerName: `${wcOrder.billing?.first_name || ''} ${wcOrder.billing?.last_name || ''}`.trim() || 'Guest',
         items: wcOrder.line_items?.map(item => ({
-          productId: item.product_id?.toString(),
-          productName: item.name,
-          quantity: item.quantity,
-          price: parseFloat(item.price),
-          total: parseFloat(item.total)
+          productId: item.product_id?.toString() || '',
+          productName: item.name || 'Unknown Product',
+          quantity: item.quantity || 1,
+          price: safeParseFloat(item.price, 0),
+          total: safeParseFloat(item.total, 0)
         })) || [],
-        subtotal: parseFloat(wcOrder.total) - (parseFloat(wcOrder.total_tax) || 0) - (parseFloat(wcOrder.shipping_total) || 0),
-        tax: parseFloat(wcOrder.total_tax) || 0,
-        shipping: parseFloat(wcOrder.shipping_total) || 0,
-        discount: parseFloat(wcOrder.discount_total) || 0,
-        total: parseFloat(wcOrder.total),
+        subtotal: subtotal,
+        tax: totalTax,
+        shipping: shippingTotal,
+        discount: discountTotal,
+        total: total,
         currency: wcOrder.currency || 'USD',
-        status: wcOrder.status,
-        paymentMethod: wcOrder.payment_method,
+        status: wcOrder.status || 'pending',
+        paymentMethod: wcOrder.payment_method || '',
         paymentStatus: wcOrder.paid ? 'paid' : 'pending',
         shippingAddress: {
-          name: `${wcOrder.shipping?.first_name || ''} ${wcOrder.shipping?.last_name || ''}`.trim(),
-          address1: wcOrder.shipping?.address_1,
-          address2: wcOrder.shipping?.address_2,
-          city: wcOrder.shipping?.city,
-          state: wcOrder.shipping?.state,
-          zip: wcOrder.shipping?.postcode,
-          country: wcOrder.shipping?.country
+          name: `${wcOrder.shipping?.first_name || ''} ${wcOrder.shipping?.last_name || ''}`.trim() || '',
+          address1: wcOrder.shipping?.address_1 || '',
+          address2: wcOrder.shipping?.address_2 || '',
+          city: wcOrder.shipping?.city || '',
+          state: wcOrder.shipping?.state || '',
+          zip: wcOrder.shipping?.postcode || '',
+          country: wcOrder.shipping?.country || ''
         },
         orderDate: wcOrder.date_created
       },

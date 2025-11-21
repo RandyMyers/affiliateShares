@@ -47,26 +47,44 @@ exports.processOrder = async (req, res, next) => {
       }
     }
 
+    // Validate required fields
+    if (!orderData.orderNumber) {
+      return sendResponse(res, 400, 'Order number is required', null);
+    }
+
+    // Ensure externalOrderId is set
+    const externalOrderId = orderData.orderNumber || orderData.id;
+    if (!externalOrderId) {
+      return sendResponse(res, 400, 'External order ID is required', null);
+    }
+
+    // Safely parse numeric values (handle NaN)
+    const safeParseFloat = (value, defaultValue = 0) => {
+      if (value === null || value === undefined) return defaultValue;
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? defaultValue : parsed;
+    };
+
     // Create order
     const order = new Order({
       store: storeId,
       affiliate: affiliate ? affiliate._id : null,
-      externalOrderId: orderData.orderNumber || orderData.id,
+      externalOrderId: externalOrderId,
       orderData: {
-        orderNumber: orderData.orderNumber || orderData.id,
-        customerEmail: orderData.customerEmail || orderData.email,
-        customerName: orderData.customerName || orderData.name,
+        orderNumber: orderData.orderNumber,
+        customerEmail: orderData.customerEmail || orderData.email || '',
+        customerName: orderData.customerName || orderData.name || 'Guest',
         items: orderData.items || [],
-        subtotal: orderData.subtotal || orderData.total,
-        tax: orderData.tax || 0,
-        shipping: orderData.shipping || 0,
-        discount: orderData.discount || 0,
-        total: orderData.total,
+        subtotal: safeParseFloat(orderData.subtotal, safeParseFloat(orderData.total, 0)),
+        tax: safeParseFloat(orderData.tax, 0),
+        shipping: safeParseFloat(orderData.shipping, 0),
+        discount: safeParseFloat(orderData.discount, 0),
+        total: safeParseFloat(orderData.total, 0),
         currency: orderData.currency || 'USD',
         status: orderData.status || 'pending',
-        paymentMethod: orderData.paymentMethod,
-        paymentStatus: orderData.paymentStatus,
-        shippingAddress: orderData.shippingAddress
+        paymentMethod: orderData.paymentMethod || '',
+        paymentStatus: orderData.paymentStatus || 'pending',
+        shippingAddress: orderData.shippingAddress || {}
       },
       clickId: click ? click._id : null,
       cookieId: cookieId,
