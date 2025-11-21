@@ -3,6 +3,7 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
@@ -40,7 +41,9 @@ app.use(cors({
   origin: '*',  // Allow requests from the frontend
   methods: ['GET', 'POST', 'PUT', 'PATCH','DELETE'],  // Adjust allowed methods as needed
   allowedHeaders: ['Content-Type', 'Authorization'],  // Allow specific headers if needed
+  credentials: true  // Allow cookies to be sent cross-origin
 }));
+app.use(cookieParser()); // Parse cookies from requests
 app.use(bodyParser.json({ limit: '10mb' })); // Adjust the limit as needed
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true })); 
 app.use(morgan('dev')); 

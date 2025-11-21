@@ -69,11 +69,14 @@ exports.trackClick = async (req, res, next) => {
     await store.save();
 
     // Set cookie
+    // Note: For cross-domain tracking, cookies are set client-side by JavaScript
+    // This server-side cookie is for the click tracking endpoint only
     res.cookie('affiliate_tracking', cookieId, {
       maxAge: store.settings.cookieDuration * 24 * 60 * 60 * 1000, // Convert days to ms
       httpOnly: false, // JavaScript needs to access this
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax'
+      sameSite: 'lax',
+      domain: undefined // Don't set domain to allow cross-domain cookies
     });
 
     // Redirect to original URL
