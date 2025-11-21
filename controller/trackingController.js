@@ -138,13 +138,26 @@ exports.serveTrackingScript = async (req, res, next) => {
   // Get referral code from URL
   var ref = getUrlParam('ref') || getUrlParam('affiliate') || getUrlParam('aff');
   
+  // Debug logging (remove in production if needed)
+  if (ref) {
+    console.log('[Affiliate Network] Found ref parameter:', ref);
+  }
+  
   // Get existing cookie or tracking cookie
   var affiliateRef = getCookie(COOKIE_NAME) || getCookie(TRACKING_COOKIE);
   
   // If we have a new ref parameter, update cookie
   if (ref) {
+    console.log('[Affiliate Network] Setting cookie:', COOKIE_NAME, '=', ref);
     setCookie(COOKIE_NAME, ref, COOKIE_DURATION);
     affiliateRef = ref;
+    // Verify cookie was set
+    var verifyCookie = getCookie(COOKIE_NAME);
+    if (verifyCookie) {
+      console.log('[Affiliate Network] Cookie set successfully:', verifyCookie);
+    } else {
+      console.error('[Affiliate Network] Failed to set cookie!');
+    }
   }
   
   // Track click if we have affiliate reference
@@ -241,8 +254,10 @@ exports.serveTrackingScript = async (req, res, next) => {
 })();
 `;
 
-    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow cross-origin requests
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(script);
   } catch (error) {
     next(error);
