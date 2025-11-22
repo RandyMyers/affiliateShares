@@ -4,8 +4,9 @@ const clickSchema = new mongoose.Schema({
   affiliate: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Affiliate',
-    required: true,
-    index: true
+    required: false, // Allow clicks without affiliate (anonymous clicks)
+    index: true,
+    default: null
   },
   store: {
     type: mongoose.Schema.Types.ObjectId,
@@ -15,8 +16,9 @@ const clickSchema = new mongoose.Schema({
   },
   referralCode: {
     type: String,
-    required: true,
-    index: true
+    required: false, // Allow clicks without referral code
+    index: true,
+    default: null
   },
   // Tracking information
   ipAddress: {

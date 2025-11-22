@@ -46,27 +46,38 @@ exports.trackClick = async (req, res, next) => {
     const cookieId = req.cookies.affiliate_tracking || 
                     crypto.randomBytes(16).toString('hex');
 
-    // Create click record
-    const click = new Click({
-      affiliate: affiliate ? affiliate._id : null,
+    // Create click record (affiliate and referralCode are optional)
+    const clickData = {
       store: store._id,
-      referralCode: referralCode || null,
       ipAddress: req.ip || req.connection.remoteAddress,
       userAgent: req.headers['user-agent'],
       referer: req.headers.referer,
       landingPage: url || '/',
       cookieId: cookieId
-    });
-
+    };
+    
+    // Only add affiliate if found
+    if (affiliate) {
+      clickData.affiliate = affiliate._id;
+    }
+    
+    // Only add referralCode if present
+    if (referralCode) {
+      clickData.referralCode = referralCode;
+    }
+    
+    const click = new Click(clickData);
     await click.save();
+    
     console.log('[Tracking] Click recorded:', {
       clickId: click._id,
       storeId: store._id,
-      affiliateId: affiliate ? affiliate._id : null,
-      referralCode: referralCode || 'NONE'
+      affiliateId: affiliate ? affiliate._id.toString() : 'NONE',
+      referralCode: referralCode || 'NONE',
+      hasAffiliate: !!affiliate
     });
 
-    // Update affiliate stats if exists
+    // Update affiliate stats if exists and is approved for this store
     if (affiliate) {
       const storeApplication = affiliate.stores.find(
         s => s.store.toString() === store._id.toString()
@@ -76,7 +87,16 @@ exports.trackClick = async (req, res, next) => {
         storeApplication.stats.clicks += 1;
         affiliate.stats.totalClicks += 1;
         await affiliate.save();
+        console.log('[Tracking] Updated affiliate stats:', affiliate._id);
+      } else {
+        console.log('[Tracking] Affiliate found but not approved for this store:', {
+          affiliateId: affiliate._id,
+          hasApplication: !!storeApplication,
+          status: storeApplication?.status
+        });
       }
+    } else {
+      console.log('[Tracking] No affiliate found for referral code:', referralCode || 'NONE');
     }
 
     // Update store stats
