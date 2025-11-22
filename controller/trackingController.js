@@ -7,11 +7,20 @@ const crypto = require('crypto');
 // Track click
 exports.trackClick = async (req, res, next) => {
   try {
-    const { trackingCode, url, ref } = req.query;
+    const { trackingCode, url, ref } = req.query || req.body || {};
+
+    console.log('[Tracking] Click tracking request:', {
+      method: req.method,
+      trackingCode,
+      url,
+      ref,
+      userAgent: req.headers['user-agent']?.substring(0, 50)
+    });
 
     // Find store by tracking code
     const store = await Store.findOne({ trackingCode });
     if (!store) {
+      console.error('[Tracking] Store not found for tracking code:', trackingCode);
       return res.status(404).send('Store not found');
     }
 
@@ -50,6 +59,12 @@ exports.trackClick = async (req, res, next) => {
     });
 
     await click.save();
+    console.log('[Tracking] Click recorded:', {
+      clickId: click._id,
+      storeId: store._id,
+      affiliateId: affiliate ? affiliate._id : null,
+      referralCode: referralCode || 'NONE'
+    });
 
     // Update affiliate stats if exists
     if (affiliate) {
@@ -79,9 +94,37 @@ exports.trackClick = async (req, res, next) => {
       domain: undefined // Don't set domain to allow cross-domain cookies
     });
 
-    // Redirect to original URL
-    const redirectUrl = url || store.domain;
-    res.redirect(302, redirectUrl);
+    // Check if this is a beacon/pixel request (POST or has specific headers)
+    const isBeaconRequest = req.method === 'POST' || 
+                           req.headers['content-type'] === 'text/plain' ||
+                           req.headers['user-agent']?.includes('beacon') ||
+                           req.query?.pixel === '1';
+
+    console.log('[Tracking] Request type:', {
+      method: req.method,
+      isBeacon: isBeaconRequest,
+      contentType: req.headers['content-type']
+    });
+
+    if (isBeaconRequest) {
+      // For beacon/pixel requests, return 1x1 transparent GIF
+      // This allows sendBeacon and Image pixel tracking to work
+      res.setHeader('Content-Type', 'image/gif');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Access-Control-Allow-Origin', '*'); // Allow cross-origin
+      
+      // Return 1x1 transparent GIF
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      console.log('[Tracking] ✅ Returning pixel response for beacon request');
+      return res.status(200).send(pixel);
+    } else {
+      // For direct browser navigation, redirect to original URL
+      const redirectUrl = url || store.domain;
+      console.log('[Tracking] Redirecting to:', redirectUrl);
+      return res.redirect(302, redirectUrl);
+    }
   } catch (error) {
     next(error);
   }

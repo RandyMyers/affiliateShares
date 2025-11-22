@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 // Public routes (no auth required for tracking)
 router.get('/click', trackingController.trackClick);
+router.post('/click', trackingController.trackClick); // Support POST for sendBeacon
 router.get('/:trackingCode.js', trackingController.serveTrackingScript);
 
 // Protected routes for statistics
